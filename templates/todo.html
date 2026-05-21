@@ -27,10 +27,28 @@
 
             <ul>
 
-            {% for todo in todos %}
+           {% for todo in todos %}
 
-                <li>{{ todo.content }}</li>
+                <li>
 
+                    <form
+                        action="/update/{{ todo.id }}"
+                        method="POST"
+                    >
+
+                        <input
+                            type="text"
+                            name="content"
+                            value="{{ todo.content }}"
+                        >
+
+                        <button type="submit">
+                            更新
+                        </button>
+
+                    </form>
+
+                </li>
             {% endfor %}
 
             </ul>
