@@ -1,4 +1,4 @@
-services:
+services:  
   flask-mvp:
     build: .
     container_name: flask-mvp
