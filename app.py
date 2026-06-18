@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
 
+from urllib.parse import urljoin
 import requests
 
 from bs4 import BeautifulSoup
@@ -157,6 +158,43 @@ def quotes():
         "quotes.html",
         quote_list=quote_list
     ) 
+
+@app.route("/fju_math")
+def fju_math():
+
+    url = "https://www.math.fju.edu.tw/"
+
+    response = requests.get(url)
+    soup = BeautifulSoup(
+        response.text,
+        "html.parser"
+    )
+
+    result = []
+
+    menu_items = soup.select("a")
+
+    for item in menu_items:
+
+        text = item.get_text(strip=True)
+        href = item.get("href")
+
+        if not href or not text:
+            continue
+
+        from urllib.parse import urljoin
+
+        href = urljoin(url, href)
+
+        result.append({
+            "text": text,
+            "href": href
+            })
+
+    return render_template(
+        "fju_math.html",
+        result=result
+    )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", 

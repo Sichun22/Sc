@@ -1,0 +1,17 @@
+{% extends "navbar.html" %}
+
+{% block content %}
+
+<h1>輔大數學系網站資料</h1>
+
+<ul>
+{% for item in result %}
+    <li>
+        <a href="{{ item.href }}" target="_blank">
+            {{ item.text }}
+        </a>
+    </li>
+{% endfor %}
+</ul>
+
+{% endblock %}
