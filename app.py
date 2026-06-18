@@ -11,12 +11,19 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from flask import Flask, render_template, request, redirect, jsonify
+load_dotenv()
+import json
+import time
+from collections import deque
+
 load_dotenv()
 
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
@@ -30,6 +37,8 @@ class Todo(db.Model):
 
 with app.app_context():
     db.create_all()
+
+    CACHE_FILE = "fju_cache.json"
 
 
 @app.route("/")
@@ -97,7 +106,6 @@ def news():
 
     titles = soup.select(".titleline a")
 
-    result = ""
 
     news_list = []
 
@@ -159,45 +167,133 @@ def quotes():
         quote_list=quote_list
     ) 
 
+# 🔥 輔大數學系全站爬蟲
+# =====================
+def crawl_fju_math():
+
+    base = "https://www.math.fju.edu.tw/zh-hant/"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    visited = set()
+    queue = deque([base])
+
+    pages = []
+
+    while queue:
+
+        url = queue.popleft()
+
+        if url in visited:
+            continue
+
+        visited.add(url)
+
+        try:
+            res = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(res.text, "html.parser")
+
+            text = soup.get_text("\n", strip=True)
+
+            pages.append({
+                "url": url,
+                "text": text
+            })
+
+            # 找內部連結
+            for a in soup.find_all("a", href=True):
+                link = urljoin(url, a["href"])
+
+                if "math.fju.edu.tw" in link and link not in visited:
+                    queue.append(link)
+
+        except:
+            continue
+
+        time.sleep(0.2)
+
+    return pages
+
+# =====================
+# Cache
+# =====================
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def save_cache(data):
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+
 @app.route("/fju_math")
 def fju_math():
 
-    url = "https://www.math.fju.edu.tw/"
+    cache = load_cache()
 
-    response = requests.get(url)
-    soup = BeautifulSoup(
-        response.text,
-        "html.parser"
-    )
+    if not cache:
+        cache = crawl_fju_math()
+        save_cache(cache)
 
     result = []
 
-    menu_items = soup.select("a")
+    for page in cache:
 
-    for item in menu_items:
-
-        text = item.get_text(strip=True)
-        href = item.get("href")
-
-        if not href or not text:
-            continue
-
-        from urllib.parse import urljoin
-
-        href = urljoin(url, href)
 
         result.append({
-            "text": text,
-            "href": href
-            })
+            "text": page["url"],
+            "href": page["url"]
+        })
 
     return render_template(
         "fju_math.html",
         result=result
     )
 
+@app.route("/api/course_search")
+def course_search():
+
+    keyword = request.args.get("keyword", "").strip()
+
+    cache = load_cache()
+
+    if not cache:
+        cache = crawl_fju_math()
+        save_cache(cache)
+
+    results = []
+
+    for page in cache:
+
+        for line in page["text"].split("\n"):
+
+            line = line.strip()
+
+            if len(line) < 2:
+                continue
+
+            if keyword in line:
+
+                results.append({
+                    "course": line,
+                    "source": page["url"]
+                })
+
+    return jsonify({"results": results[:50]})
+
+# =====================
+# smart search page
+# =====================
+@app.route("/smart_search")
+def smart_search():
+    return render_template("smart_search.html")
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", 
-            port=int(os.environ.get("PORT",5000)),
-            debug=True
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=True,
     )

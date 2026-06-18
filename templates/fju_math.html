@@ -2,16 +2,32 @@
 
 {% block content %}
 
-<h1>輔大數學系網站資料</h1>
+<h2>輔大數學系資料</h2>
+
+<div style="margin-bottom:20px;">
+    <a href="/smart_search">
+        <button type="button">
+            課程搜尋系統
+        </button>
+    </a>
+</div>
+
+{% if result %}
 
 <ul>
-{% for item in result %}
+    {% for item in result %}
     <li>
         <a href="{{ item.href }}" target="_blank">
             {{ item.text }}
         </a>
     </li>
-{% endfor %}
+    {% endfor %}
 </ul>
+
+{% else %}
+
+<p>目前沒有抓到資料。</p>
+
+{% endif %}
 
 {% endblock %}

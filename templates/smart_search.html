@@ -1,0 +1,76 @@
+{% extends "navbar.html" %}
+
+{% block content %}
+
+<h2>輔大數學系課程搜尋</h2>
+
+<div>
+    <input
+        type="text"
+        id="keyword"
+        placeholder="請輸入課程名稱，例如：微積分"
+    >
+
+    <button onclick="searchCourse()">
+        搜尋
+    </button>
+</div>
+
+<br>
+
+<div id="result"></div>
+
+<script>
+
+function searchCourse() {
+
+    const keyword =
+        document.getElementById("keyword").value;
+
+    fetch(`/api/course_search?keyword=${keyword}`)
+
+    .then(response => response.json())
+
+    .then(data => {
+
+        let html = "";
+
+        if (data.results.length === 0) {
+
+            html = "<p>找不到相關課程</p>";
+
+        } else {
+
+            data.results.forEach(item => {
+
+                html += `
+                    <div style="margin-bottom:10px;">
+                        <strong>${item.course}</strong>
+                        <br>
+                        <a href="${item.source}" target="_blank">
+                            查看來源
+                        </a>
+                    </div>
+                `;
+            });
+
+        }
+
+        document.getElementById("result").innerHTML = html;
+
+    })
+
+    .catch(error => {
+
+        document.getElementById("result").innerHTML =
+            "<p>搜尋失敗</p>";
+
+        console.error(error);
+
+    });
+
+}
+
+</script>
+
+{% endblock %}

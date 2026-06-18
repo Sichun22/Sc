@@ -1,0 +1,15 @@
+{% extends "navbar.html" %}
+
+{% block content %}
+
+<h1>{{ name }}</h1>
+
+<p>Tags / Info:</p>
+
+<ul>
+{% for item in data %}
+    <li>{{ item }}</li>
+{% endfor %}
+</ul>
+
+{% endblock %}
