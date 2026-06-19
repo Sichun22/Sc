@@ -1,76 +1,99 @@
 {% extends "navbar.html" %}
 
 {% block content %}
+<div style="max-width: 900px; margin: 0 auto; padding: 20px; font-family: 'Microsoft JhengHei', sans-serif;">
+    <h2 style="color: #27ae60; border-bottom: 2px solid #27ae60; padding-bottom: 10px;">🔍 輔大數學系智能課程查詢系統</h2>
+    <p style="color: #666;">輸入想查詢的學科關鍵字，AI 爬蟲引擎將<b>即時現場掃描系網課表、公告，精準過濾並抽取出課程名稱、任課老師與學分資訊</b>。</p>
 
-<h2>輔大數學系課程搜尋</h2>
+    <!-- 搜尋列 -->
+    <div style="margin: 25px 0; display: flex; gap: 10px;">
+        <input
+            type="text"
+            id="keyword"
+            placeholder="請輸入想查詢的課程或領域，例如：微積分、代數、幾何、機率"
+            style="flex: 1; padding: 12px; border: 2px solid #27ae60; border-radius: 6px; font-size: 16px; outline: none;"
+            onkeypress="handleKeyPress(event)"
+        >
+        <button onclick="searchCourse()" style="padding: 12px 30px; background-color: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">
+            🚀 現場即時爬取
+        </button>
+    </div>
 
-<div>
-    <input
-        type="text"
-        id="keyword"
-        placeholder="請輸入課程名稱，例如：微積分"
-    >
+    <div style="margin-bottom: 20px;">
+        <a href="/fju_math" style="color: #2980b9; text-decoration: none; font-weight: bold;">← 前往查看「輔大數學系所有資料庫清單」</a>
+    </div>
 
-    <button onclick="searchCourse()">
-        搜尋
-    </button>
+    <hr style="border: 0; border-top: 1px solid #dee2e6; margin: 25px 0;">
+
+    <!-- 搜尋結果 -->
+    <div id="result"></div>
 </div>
 
-<br>
-
-<div id="result"></div>
-
 <script>
+function handleKeyPress(event) {
+    if (event.key === "Enter") {
+        searchCourse();
+    }
+}
 
 function searchCourse() {
+    const keyword = document.getElementById("keyword").value.trim();
+    const resultDiv = document.getElementById("result");
 
-    const keyword =
-        document.getElementById("keyword").value;
+    if (!keyword) {
+        resultDiv.innerHTML = "<p style='color: #c0392b; font-weight: bold;'>⚠️ 請先輸入關鍵字以啟動即時課程爬蟲。</p>";
+        return;
+    }
 
-    fetch(`/api/course_search?keyword=${keyword}`)
+    // 高能爬蟲啟動動態特效
+    resultDiv.innerHTML = `
+        <div style="padding: 25px; background: #e8f8f5; border-left: 6px solid #27ae60; border-radius: 5px;">
+            <p style="color: #117a65; font-weight: bold; margin: 0 0 8px 0; font-size: 16px;">🕷️ 現場即時課程爬蟲已全速推進！</p>
+            <p style="color: #555; margin: 0; font-size: 14px;">正在即時穿透輔大數學系各系所開課網頁、表格進行現場採集過濾（內含微積分全面防漏機制），請稍候 5 至 15 秒鐘...</p>
+        </div>
+    `;
 
+    fetch(`/api/course_search?keyword=${encodeURIComponent(keyword)}`)
     .then(response => response.json())
-
     .then(data => {
-
         let html = "";
 
-        if (data.results.length === 0) {
-
-            html = "<p>找不到相關課程</p>";
-
+        if (!data.results || data.results.length === 0) {
+            html = `
+                <div style='padding: 20px; background-color: #fead9a; color: #78281f; border-radius: 6px; font-weight: bold;'>
+                    ❌ 即時爬取報告：遍歷各開課大綱網頁後，現場未搜尋到包含「${keyword}」且具備課程特徵（學分/老師）的公開資料，請更換別名再試！
+                </div>
+            `;
         } else {
-
+            html = `<p style="color: #27ae60; margin-bottom: 15px; font-weight: bold;">🎉 報告：全自動現場採集完畢！成功抽取 <strong>${data.results.length}</strong> 筆包含老師/學分的精準課堂：</p>`;
+            
             data.results.forEach(item => {
-
                 html += `
-                    <div style="margin-bottom:10px;">
-                        <strong>${item.course}</strong>
-                        <br>
-                        <a href="${item.source}" target="_blank">
-                            查看來源
-                        </a>
+                    <div style="background: #ffffff; border: 1px solid #d5dbdb; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.04);">
+                        <!-- 頂部標籤列 -->
+                        <div style="margin-bottom: 12px; display: flex; gap: 10px;">
+                            <span style="background: #27ae60; color: white; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 3px;">✨ 課程性質: ${item.type}</span>
+                            <span style="background: #2980b9; color: white; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 3px;">⏱️ ${item.credits}</span>
+                        </div>
+                        
+                        <!-- 爬取到含老師/時間的完整資訊 -->
+                        <div style="font-size: 16px; font-weight: bold; color: #2c3e50; line-height: 1.6; margin-bottom: 12px; background: #f4f6f6; padding: 12px; border-radius: 5px; border-left: 4px solid #7f8c8d;">
+                            📖 ${item.raw_info}
+                        </div>
+                        
+                        <div style="font-size: 13px; color: #7f8c8d;">
+                            📍 本條資訊即時採集自：<a href="${item.source}" target="_blank" style="color: #2980b9; text-decoration: none; font-weight: bold;">輔大數學系原網頁</a>
+                        </div>
                     </div>
                 `;
             });
-
         }
 
-        document.getElementById("result").innerHTML = html;
-
+        resultDiv.innerHTML = html;
     })
-
     .catch(error => {
-
-        document.getElementById("result").innerHTML =
-            "<p>搜尋失敗</p>";
-
-        console.error(error);
-
+        resultDiv.innerHTML = "<div style='padding: 20px; background-color: #f9ebeb; color: #922b21; border-radius: 4px; font-weight: bold;'>❌ 爬蟲引擎或網路請求對接中斷，請確認 Python 後端環境。</div>";
     });
-
 }
-
 </script>
-
 {% endblock %}

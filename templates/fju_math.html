@@ -1,33 +1,72 @@
 {% extends "navbar.html" %}
 
 {% block content %}
+<div style="max-width: 900px; margin: 0 auto; padding: 20px; font-family: 'Microsoft JhengHei', sans-serif;">
+    <h2 style="color: #2c3e50; border-bottom: 2px solid #34495e; padding-bottom: 10px;">🏫 輔大數學系官網資料庫</h2>
+    <p style="color: #7f8c8d;">此頁面展示系統完整採集並分析輔大數學系官方網站的「所有公告、最新消息、師資與簡介資料」。</p>
 
-<h2>輔大數學系資料</h2>
-
-<div style="margin-bottom:20px;">
-    <a href="/smart_search">
-        <button type="button">
-            課程搜尋系統
+    <!-- 操作按鈕 -->
+    <div style="margin-bottom: 25px; display: flex; gap: 12px;">
+        <a href="/smart_search">
+            <button type="button" style="padding: 10px 20px; background-color: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                🎯 前往智能課程查詢系統
+            </button>
+        </a>
+        <button type="button" onclick="triggerRefresh()" id="refreshBtn" style="padding: 10px 20px; background-color: #34495e; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+            🔄 重新全自動爬取系網所有資料
         </button>
-    </a>
+    </div>
+
+    <div id="statusMessage" style="display: none; margin-bottom: 15px; padding: 15px; background: #e8f4f8; color: #2980b9; border-radius: 4px; font-weight: bold;"></div>
+
+    {% if result %}
+    <p style="color: #2c3e50;">📊 目前背景資料庫已成功儲存 <strong>{{ result|length }}</strong> 個官方網頁內容：</p>
+        
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        {% for item in result %}
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dcdde1; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <h4 style="margin: 0 0 10px 0; color: #2980b9; font-size: 16px;">🌐 頁面標題：{{ item.title }}</h4>
+            <p style="margin: 0 0 12px 0; color: #636e72; font-size: 14px; line-height: 1.6; background: #fff; padding: 10px; border-radius: 4px; border: 1px dashed #b2bec3;">
+                <strong>內文摘要：</strong>{{ item.summary }}
+            </p>
+            <div style="font-size: 13px;">
+                🔗 原始連結：<a href="{{ item.url }}" target="_blank" style="color: #0984e3; text-decoration: none; font-weight: bold;">{{ item.url }}</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div style="padding: 25px; background-color: #ffeaa7; color: #d63031; border-radius: 6px; font-weight: bold; border: 1px solid #f1c40f;">
+        ⚠️ 目前背景尚無全站暫存資料。請點擊上方「重新全自動爬取系網所有資料」按鈕啟動第一次核心爬蟲。
+    </div>
+    {% endif %}
 </div>
 
-{% if result %}
+<script>
+function triggerRefresh() {
+    if (!confirm('重新爬取輔大數學系全站所有公告與網頁大約需要 1 到 2 分鐘，確定開始嗎？')) return;
+    
+    const btn = document.getElementById("refreshBtn");
+    const status = document.getElementById("statusMessage");
+    
+    btn.disabled = true;
+    btn.style.background = "#7f8c8d";
+    status.style.display = "block";
+    status.innerHTML = "⏳ 正在全面阻擊並下載輔大數學系所有網頁文字，請絕對不要關閉或重新整理此視窗...";
 
-<ul>
-    {% for item in result %}
-    <li>
-        <a href="{{ item.href }}" target="_blank">
-            {{ item.text }}
-        </a>
-    </li>
-    {% endfor %}
-</ul>
-
-{% else %}
-
-<p>目前沒有抓到資料。</p>
-
-{% endif %}
-
+    fetch("/refresh_cache")
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message);
+        window.location.reload();
+    })
+    .catch(err => {
+        alert("背景採集發生異常，請確認伺服器狀態。");
+        btn.disabled = false;
+        btn.style.background = "#34495e";
+        status.style.display = "none";
+    });
+}
+</script>
 {% endblock %}
