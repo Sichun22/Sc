@@ -1,22 +1,7 @@
 [
     {
         "title": "首頁 - 輔仁大學數學系",
-        "url": "https://www.math.fju.edu.tw/",
-        "summary": "首頁 - 輔仁大學數學系 | English | 首頁最新消息 | 系所公告課程公告學士班碩士班演講公告獎助學金公告課外活動與徵才服務學習系所簡介 | 歷史沿革宗旨目標本系亮點未來發展圖書空間與實驗室常見Q&A師資介紹 | 師資介紹退休教師助教資訊課程資訊 | 學士班課程碩士班課程選課資訊網資數組課..."
-    },
-    {
-        "title": "Home - Department of Mathematics, Fu Jen Catholic University",
-        "url": "https://www.math.fju.edu.tw/en/",
-        "summary": "Home - Department of Mathematics, Fu Jen Catholic University | 中文 | HomeAbout us | Brief HistoryTeaching MissionFaculty & Staff | FacultyRetiredStaffS..."
-    },
-    {
-        "title": "首頁 - 輔仁大學數學系",
         "url": "https://www.math.fju.edu.tw",
-        "summary": "首頁 - 輔仁大學數學系 | English | 首頁最新消息 | 系所公告課程公告學士班碩士班演講公告獎助學金公告課外活動與徵才服務學習系所簡介 | 歷史沿革宗旨目標本系亮點未來發展圖書空間與實驗室常見Q&A師資介紹 | 師資介紹退休教師助教資訊課程資訊 | 學士班課程碩士班課程選課資訊網資數組課..."
-    },
-    {
-        "title": "首頁 - 輔仁大學數學系",
-        "url": "https://www.math.fju.edu.tw/zh-hant/",
         "summary": "首頁 - 輔仁大學數學系 | English | 首頁最新消息 | 系所公告課程公告學士班碩士班演講公告獎助學金公告課外活動與徵才服務學習系所簡介 | 歷史沿革宗旨目標本系亮點未來發展圖書空間與實驗室常見Q&A師資介紹 | 師資介紹退休教師助教資訊課程資訊 | 學士班課程碩士班課程選課資訊網資數組課..."
     },
     {
@@ -173,5 +158,10 @@
         "title": "志願服務 - 輔仁大學數學系",
         "url": "https://www.math.fju.edu.tw/zh-hant/student/志願服務",
         "summary": "志願服務 - 輔仁大學數學系 | English | 首頁最新消息 | 系所公告課程公告學士班碩士班演講公告獎助學金公告課外活動與徵才服務學習系所簡介 | 歷史沿革宗旨目標本系亮點未來發展圖書空間與實驗室常見Q&A師資介紹 | 師資介紹退休教師助教資訊課程資訊 | 學士班課程碩士班課程選課資訊網資數..."
+    },
+    {
+        "title": "畢業典禮 - 輔仁大學數學系",
+        "url": "https://www.math.fju.edu.tw/zh-hant/student/畢業典禮",
+        "summary": "畢業典禮 - 輔仁大學數學系 | English | 首頁最新消息 | 系所公告課程公告學士班碩士班演講公告獎助學金公告課外活動與徵才服務學習系所簡介 | 歷史沿革宗旨目標本系亮點未來發展圖書空間與實驗室常見Q&A師資介紹 | 師資介紹退休教師助教資訊課程資訊 | 學士班課程碩士班課程選課資訊網資數..."
     }
 ]

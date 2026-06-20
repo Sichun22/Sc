@@ -179,6 +179,11 @@ def crawl_fju_all_system():
 
     while queue and len(visited) < MAX_PAGES:
         url = queue.popleft()
+
+        # 💡 強制網址正規化：拔掉尾部斜線與參數
+        url = url.strip().rstrip("/")
+        url = url.split("?")[0] # 抹平所有網頁參數防止被繞過
+
         if url in visited:
             continue
         visited.add(url)
@@ -197,14 +202,25 @@ def crawl_fju_all_system():
             # 獲取標題與全網頁乾淨純文字
             title = soup.title.string.strip() if soup.title else "無標題網頁"
             
+            # 💡 改進點 1：如果標題已經抓過了，說明是同一個頁面的不同變體網址，直接跳過
+            if any(page["title"] == title for page in collected_pages):
+                continue
+
+            # 💡 雙重防禦鐵律 2：如果是純粹的英文版首頁重複切換，也扔掉
+            if "Home" in title and "Department of Mathematics" in title and url != start_url:
+                continue
+
             # 去除指令碼與樣式標籤避免雜訊
             for script in soup(["script", "style"]):
                 script.decompose()
                 
             clean_text = soup.get_text()
-            # 過濾空白行，將整頁文字重新組合成易讀的段落
-            paragraphs = [p.strip() for p in clean_text.split("\n") if p.strip()]
-            summary = " | ".join(paragraphs[:15]) # 擷取前15行作為網頁摘要展示
+            # 💡 改進點 2：段落去重。利用 dict 保持順序並剃除手機/電腦版選單的重複文字
+            raw_paragraphs = [p.strip() for p in clean_text.split("\n") if p.strip()]
+            unique_paragraphs = list(dict.fromkeys(raw_paragraphs))
+            
+            # 擷取前15行不重複的乾淨段落作為摘要展示
+            summary = " | ".join(unique_paragraphs[:15])
 
             collected_pages.append({
                 "title": title,
@@ -215,9 +231,11 @@ def crawl_fju_all_system():
             # 自動向下延伸抓取系網內部連結
             for a in soup.find_all("a", href=True):
                 link = urljoin(url, a["href"]).split("#")[0]
+                if link.endswith("/"):
+                    link = link[:-1]
+
                 if "math.fju.edu.tw" in link and link not in visited:
                     queue.append(link)
-
         except Exception as e:
             pass
             
@@ -225,12 +243,19 @@ def crawl_fju_all_system():
 
 @app.route("/fju_math")
 def fju_math():
-    # 讀取本機快取，若無則啟動全站爬蟲
-    data = load_all_cache()
-    if not data:
-        data = crawl_fju_all_system()
-        save_all_cache(data)
+    # 💡 修正關鍵點：強制刪除舊的快取文件，不讓舊資料鬼打牆
+    if os.path.exists(CACHE_FILE):
+        try:
+            os.remove(CACHE_FILE)
+            print("🧹 已成功銷毀舊有快取，即時重爬去重機制啟動！")
+        except Exception:
+            pass
+
+    # 執行最新的無重複爬蟲
+    data = crawl_fju_all_system()
+    save_all_cache(data)
     return render_template("fju_math.html", result=data)
+
 
 @app.route("/refresh_cache")
 def refresh_cache():
@@ -245,7 +270,7 @@ def refresh_cache():
 def live_course_crawler(keyword):
     # 直接鎖定輔大數學系的核心開課資訊、課表、選課與公告網址出發
     target_urls = [
-         "https://www.math.fju.edu.tw/zh-hant/courses/%E8%B3%87%E6%95%B8%E7%B5%84%E8%AA%B2%E8%A1%A8",
+        "https://www.math.fju.edu.tw/zh-hant/courses/%E8%B3%87%E6%95%B8%E7%B5%84%E8%AA%B2%E8%A1%A8",
         "https://www.math.fju.edu.tw/zh-hant/courses/%E6%87%89%E6%95%B8%E7%B5%84%E8%AA%B2%E8%A1%A8",
         "https://www.math.fju.edu.tw/zh-hant/courses/bachelor-program-courses"
     ]
