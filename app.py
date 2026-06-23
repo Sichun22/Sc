@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
-import re 
+import re
 from urllib.parse import urljoin
 import requests
 
@@ -10,15 +10,11 @@ from bs4 import BeautifulSoup
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from flask import Flask, render_template, request, redirect, jsonify
 load_dotenv()
 import json
 import time
 from collections import deque
-
-load_dotenv()
 
 app = Flask(__name__)
 
@@ -129,6 +125,7 @@ def quotes():
     options.add_argument("--disable-gpu")
 
     driver = webdriver.Chrome(options=options)
+    quote_list = []
 
     try:
         driver.get("https://quotes.toscrape.com/js/")
@@ -137,8 +134,6 @@ def quotes():
             By.CLASS_NAME,
             "quote"
         )
-
-        quote_list = []
 
         for quote in quote_elements:
 
@@ -274,142 +269,95 @@ def live_course_crawler(keyword):
         "https://www.math.fju.edu.tw/zh-hant/courses/%E6%87%89%E6%95%B8%E7%B5%84%E8%AA%B2%E8%A1%A8",
         "https://www.math.fju.edu.tw/zh-hant/courses/bachelor-program-courses"
     ]
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     course_results = []
-
-    for url in target_urls:
+    
+    for current_url in target_urls:
         try:
-            res = requests.get(url, headers=headers, timeout=8)
+            res = requests.get(current_url, headers=headers, timeout=8)
             res.raise_for_status()
-            # 💡 保留換行符號做精準切分標記
-            html_content = res.text.replace("<br>", "【SPLIT】").replace("<br/>", "【SPLIT】").replace("</br>", "【SPLIT】")
-            soup = BeautifulSoup(html_content, "html.parser")
+            
+            soup = BeautifulSoup(res.text, "html.parser")
 
-            rows = soup.find_all("tr")
-            for row in rows:
-                cols = row.find_all(["td", "th"])
-                if len(cols) < 2:
+            # 銷毀噪音
+            for noisy in soup(["nav", "footer", "header", "aside", "script", "style"]):
+                noisy.decompose()
+            
+            # 💡 核心安全修正 1：只抓最小單位的 td 與 span，且字數限制在 60 字以內，徹底封鎖整坨大課表！
+            elements = soup.find_all(["td", "span"])
+            
+            for elem in elements:
+                text_content = elem.get_text().strip()
+                
+                # 擋掉整張課表的超長文字
+                if len(text_content) > 60 or not text_content:
                     continue
                 
-                row_cells = [c.get_text(" ", strip=True) for c in cols]
-                
-                # 從這一排中抓取純粹的上課時間（排除含有中文字的欄位）
-                base_time = ""
-                for cell in row_cells:
-                    time_match = re.search(r'\d{1,2}\s*:\s*\d{2}\s*[-~~]\s*\d{1,2}\s*:\s*\d{2}', cell)
-                    if time_match and not re.search(r'[\u4e00-\u9fa5]', cell):
-                        base_time = time_match.group(0).strip()
-                        break
-
-                for cell in cols:
-                    raw_text = cell.get_text("【SPLIT】", strip=True)
-                    potential_lines = [p.strip() for p in raw_text.split("【SPLIT】") if p.strip()]
+                # 只有包含關鍵字才採集
+                if keyword in text_content:
                     
-                    # 💡 鄰近智慧綁定核心：遍歷同一格內被切碎的各行文字
-                    for idx, line_text in enumerate(potential_lines):
-                        if keyword in line_text.lower():
-                            # 排除掉單純只有時間的短行
-                            if len(line_text) < 3 or re.search(r'^\d{1,2}\s*:\s*\d{2}', line_text):
-                                continue
-                            
-                            # 🔍 往下一行找老師名字（通常為 2~4 個中文字）
-                            teacher_name = "系所指派教師"
-                            detected_time = ""
-                            
-                            if idx + 1 < len(potential_lines):
-                                next_line = potential_lines[idx+1]
-                                if re.match(r'^[\u4e00-\u9fa5]{2,4}$', next_line):
-                                    teacher_name = next_line
-                                elif re.search(r'\d{1,2}\s*:\s*\d{2}', next_line):
-                                    detected_time = next_line
-
-                            # 🔍 如果下一行被老師拿走了，再往後一行找教室與時間段
-                            if idx + 2 < len(potential_lines) and not detected_time:
-                                third_line = potential_lines[idx+2]
-                                if re.search(r'\d{1,2}\s*:\s*\d{2}', third_line) or any(k in third_line for k in ["MA", "LE", "LH"]):
-                                    detected_time = third_line
-
-                            # 決定這堂課最終展示的時間與地點
-                            final_time = detected_time if detected_time else base_time
-                            
-                            # 智慧計算學分
-                            credits = "3.0 學分"
-                            if "微積分" in line_text or "高微" in line_text:
-                                credits = "4.0 學分"
-                            else:
-                                for p in row_cells:
-                                    if "學分" in p or (p.replace('.', '', 1).isdigit() and float(p) < 6):
-                                        credits = p if "學分" in p else f"{p} 學分"
-                                        break
-                            
-                            course_type = "核心必修" if any(k in line_text.lower() or k in "".join(row_cells).lower() for k in ["必修", "必", "核心", "微積分", "代數"]) else "專業選修"
-
-                            # 精準黏合成最完美的資訊展示串，餵飽前端預期的 raw_info
-                            info_parts = [line_text, f"授課教授: {teacher_name}"]
-                            if final_time:
-                                info_parts.append(f"時間地點: {final_time}")
-                            
-                            raw_info_text = " | ".join(info_parts)
-
-                            if any(item["raw_info"] == f"課程詳情：{raw_info_text}" for item in course_results):
-                                continue
-
-                            course_results.append({
-                                "type": course_type,
-                                "credits": credits,
-                                "raw_info": f"課程詳情：{raw_info_text}",
-                                "source": url
-                            })
-
-            # 策略二：防漏機制區塊搜尋
-            elements = soup.find_all(["a", "li", "p", "div"])
-            for elem in elements:
-                try:
-                    text = elem.get_text("【SPLIT】", strip=True)
-                    parts = [p.strip() for p in text.split("【SPLIT】") if p.strip()]
-                    for part in parts:
-                        if keyword in part.lower() and 5 < len(part) < 120:
-                            if any(bad in part for bad in [":::", "首頁", "版權所有", "電話", "傳真"]):
-                                continue
-                            if "國文" in part and keyword != "國文":
-                                continue
-
-                            credits = "3.0 學分"
-                            if "微積分" in part:
-                                credits = "4.0 學分"
-                            
-                            course_type = "核心必修" if any(k in part.lower() for k in ["必修", "微積分", "代數"]) else "專業選修"
-                            
-                            if any(item["raw_info"] == f"現場即時尋獲課堂：{part}" for item in course_results):
-                                continue
-
-                            course_results.append({
-                                "type": course_type,
-                                "credits": credits,
-                                "raw_info": f"現場即時尋獲課堂：{part}",
-                                "source": url
-                            })
-                except Exception:
-                    pass
-
+                    # 抹平換行
+                    clean_line = " ".join(text_content.split())
+                    
+                    # 擋掉無關的表頭字眼
+                    if "星期" in clean_line or "組課表" in clean_line or "必修" in clean_line:
+                        continue
+                        
+                    # 防止重複
+                    if any(r["raw_info"] == clean_line for r in course_results):
+                        continue
+                    
+                    # 💡 核心安全修正 2：利用最基礎的 if-in 語法進行性質與學分分類，完全不呼叫 re
+                    core_required = ["微積分", "線性代數", "高等微積分", "代數", "幾何", "拓樸", "國文", "外國語文", "人生哲學", "導師時間", "程式設計", "Ｃ語言"]
+                    
+                    c_type = "選修"
+                    for req in core_required:
+                        if req in clean_line:
+                            c_type = "必修"
+                            break
+                        
+                    c_credits = "3 學分" # 預設選修與大部分專業課為 3 學分
+                    
+                    # 依據時段特徵自動歸類
+                    if "10:10" in clean_line or "13:40" in clean_line or "15:40" in clean_line or "08:10" in clean_line:
+                        c_credits = "2 學分"
+                    
+                    # 微積分特殊校正
+                    if "微積分" in clean_line:
+                        c_credits = "4 學分"
+                    
+                    course_results.append({
+                        "type": c_type,
+                        "credits": c_credits,
+                        "raw_info": clean_line,
+                        "source": current_url
+                    })
+                    
         except Exception as e:
-            print(f"現場即時爬取網址出錯 ({url}): {e}")
-
+            print(f"即時爬取發生錯誤: {e}")
+            
     return course_results
-    
-@app.route("/api/course_search")
-def course_search():
-    keyword = request.args.get("keyword", "").strip().lower()
-    if not keyword:
-        return jsonify({"results": []})
 
-    print(f"📡 爬蟲引擎啟動！正在即時為您現場爬取輔大數學系課程表網頁：'{keyword}'")
+# 💡 補齊前端 API 對接路由
+@app.route("/api/course_search")
+def api_course_search():
+    keyword = request.args.get("keyword", "").strip()
+
+    if not keyword:
+        return jsonify({
+            "status": "error",
+            "message": "請輸入課程關鍵字",
+            "results": []
+        })
 
     results = live_course_crawler(keyword)
-    
-    print(f"✨ 現場爬取完畢，共撈出 {len(results)} 筆真實網頁數據。")
-    return jsonify({"results": results})
+
+    return jsonify({
+        "status": "success",
+        "keyword": keyword,
+        "count": len(results),
+        "results": results
+    })
 
 @app.route("/smart_search")
 def smart_search():
