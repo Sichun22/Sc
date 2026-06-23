@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+    <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Flask MVP</title>
+            <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+        </head>
+        <body>
+            {% extends "navbar.html" %}
+
+        {% block content %}
+            <h1>Flask MVP Website</h1>
+
+            <p>這是一個最小可行版本的 Flask 網站。</p>
+           
+            
+
+    <a href="/fju_math">
+    <button style="
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+    ">
+        進入輔大數學系資料
+    </button>
+</a>
+
+<a href="/smart_search">
+    <button style="
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #007BFF;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+    ">
+        智能課程查詢（AI）
+    </button>
+</a>
+
+{% endblock %}
+        </body>
+    </html>
