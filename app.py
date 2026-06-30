@@ -19,7 +19,7 @@ from collections import deque
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+app.config["SQLALCHEMY_DATABASE_URI"] ="postgresql://sc_wwi9_user:L4O7nhTgiaP8cRsVhRC508pgXiLtyW5x@dpg-d91rntu7r5hc738rrttg-a/sc_wwi9"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
