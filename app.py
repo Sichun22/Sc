@@ -44,27 +44,17 @@ CACHE_FILE = "fju_all_data.json"
 
 
 def initialize_database():
-    try:
-        with app.app_context():
-            db.create_all()
-            if Todo.query.count() == 0:
-                seed_todo = Todo(content="歡迎使用輔大數學系 Flask 網站")
-                db.session.add(seed_todo)
-                db.session.commit()
-        print(f"資料庫初始化成功：{app.config['SQLALCHEMY_DATABASE_URI']}")
-        return True
-    except Exception as exc:
-        print(f"資料庫初始化失敗，改用 SQLite 備用: {exc}")
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///todo.db"
-        if hasattr(db, "engine"):
-            db.engine.dispose()
-        with app.app_context():
-            db.create_all()
-            if Todo.query.count() == 0:
-                seed_todo = Todo(content="歡迎使用輔大數學系 Flask 網站")
-                db.session.add(seed_todo)
-                db.session.commit()
-        return False
+    # ─── 殘酷測試版：拔掉備用機制，連不上就直接崩潰 ───
+    with app.app_context():
+        # 這行會強制要求系統去連線 .env 裡的 PostgreSQL 並建立資料表
+        db.create_all() 
+        if Todo.query.count() == 0:
+            seed_todo = Todo(content="歡迎使用輔大數學系 Flask 網站")
+            db.session.add(seed_todo)
+            db.session.commit()
+    print(f"🎉 奇蹟發生！PostgreSQL 居然連線成功了：{app.config['SQLALCHEMY_DATABASE_URI']}")
+    return True
+
 
 
 initialize_database()
@@ -478,9 +468,25 @@ def api_course_search():
 def smart_search():
     return render_template("smart_search.html")
 
+@app.route("/api/check_db")
+def check_database_data():
+    try:
+        db_uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        # 如果網址開頭包含 postgres 說明成功對接
+        db_type = "PostgreSQL" if "postgresql" in db_uri.lower() else "SQLite"
+        todos = Todo.query.all()
+        return jsonify({
+            "current_database": db_type, # 🔍 這行就是你正在找的欄位！
+            "total_count": len(todos),
+            "data": [{"id": t.id, "content": t.content} for t in todos]
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000)),
+        port=int(os.environ.get("PORT", 5001)),
         debug=False,
     )
