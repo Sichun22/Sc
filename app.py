@@ -391,11 +391,18 @@ def find_next_time_and_room(lines, start_index, max_scan=8):
 
     return teacher, course_time, room
 
+import re
+import requests
+from bs4 import BeautifulSoup
+
+# 精準的正則表達式：用來提取類似 "D010203456" 的輔大課號
+COURSE_ID_PATTERN = re.compile(r'[A-Z]\d{9}') 
+
 def live_course_crawler(keyword):
     search_words = normalize_keyword(keyword)
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     course_results = []
-    seen = set()
+    seen_ids = set()  # 改用「課號」或「唯一組合」去重，徹底解決重複顯示的凌亂感
 
     for target in COURSE_URLS:
         current_url = target["url"]
@@ -408,68 +415,93 @@ def live_course_crawler(keyword):
             lines = clean_course_lines(soup)
 
             for i, line in enumerate(lines):
-                if looks_like_noise(line):
+                # ─── 1. 精準過濾雜訊 ───
+                if not line or looks_like_noise(line):
                     continue
+                
                 line_lower = line.lower()
+                
+                # 檢查是否命中關鍵字（支援課名或教授）
                 if not any(word.lower() in line_lower for word in search_words):
                     continue
+                    
+                # 防呆：確保這行真的包含課程關鍵暗示，且排除純時間行
                 if not any(hint.lower() in line_lower for hint in COURSE_NAME_HINTS):
                     continue
                 if TIME_PATTERN.search(line):
                     continue
-                if looks_like_noise(line):
-                    continue
 
+                # ─── 2. 爬取周邊核心欄位 ───
                 teacher, course_time, room = find_next_time_and_room(lines, i)
 
-                # 至少要有時間，才當成課程資料；避免把公告或選單誤認成課程
+                # 關鍵防呆：如果連時間都沒有，絕對是系辦公告或選單雜訊，果斷捨棄
                 if not course_time:
                     continue
 
-                key = (line, teacher, course_time, room, group_name)
-                if key in seen:
-                    continue
-                seen.add(key)
+                # ─── 3. 進階欄位提取（解決網頁凌亂的核心補強） ───
+                # 嘗試從文字中撈出輔大課號，若撈不到就用課名組合，確保前端有唯一 Key 可識別
+                id_match = COURSE_ID_PATTERN.search(line)
+                course_id = id_match.group(0) if id_match else f"CUSTOM_{hash(line + (teacher or ''))}"
 
-                raw_info = f"{line}｜{teacher or '教師未顯示'}｜{course_time}｜{room or '教室未顯示'}｜{group_name}"
+                # 自動判斷必選修（若網頁沒寫，根據常見關鍵字盲測，供前端標籤化使用）
+                course_type = "必修" if "必" in line or "核心" in line else "選修"
+                
+                # 自動判斷學分（預設 3 學分，若文字中有寫則動態提取）
+                credits_match = re.search(r'(\d)\s*(學分|cr)', line)
+                credits = int(credits_match.group(1)) if credits_match else 3
+
+                # ─── 4. 去重與資料打包 ───
+                if course_id in seen_ids:
+                    continue
+                seen_ids.add(course_id)
+
+                # 結構化資料包：提供前端畫表格、過濾器（Filter）所需的完整欄位
                 course_results.append({
-                    "course_name": line,
+                    "course_id": course_id,          # 補齊課號 (前端 :key 的救星)
+                    "course_name": line.strip(),
                     "teacher": teacher or "教師未顯示",
-                    "time": course_time,
+                    "time": course_time.strip(),     # 例如: "二3-4"
                     "room": room or "教室未顯示",
-                    "group": group_name,
-                    "type": group_name,
-                    "raw_info": raw_info,
+                    "group": group_name,             # 組別 (如: 資數組)
+                    "type": course_type,             # 補齊必選修 (前端過濾器用)
+                    "credits": credits,              # 補齊學分
                     "source": current_url,
                 })
 
         except Exception as e:
-            print(f"課程查詢錯誤：{current_url} / {e}")
+            # 加上錯誤追蹤，方便你調試是哪一個 URL 的 DOM 結構變了
+            print(f"課程爬取失敗。目標網址：{current_url} | 錯誤原因：{e}")
 
-    # 排序：先依組別，再依課名，讓畫面穩定
-    course_results.sort(key=lambda x: (x["group"], x["course_name"], x["time"]))
+    # 排序優化：先依照組別、再依必選修、最後依課名排序，讓前端畫面渲染時絕對穩定不跳動
+    course_results.sort(key=lambda x: (x["group"], x["type"], x["course_name"]))
     return course_results
 
-# 前端 API 對接路由
+
 @app.route("/api/course_search")
 def api_course_search():
+    # 移除前後端可能產生的空白字元
     keyword = request.args.get("keyword", "").strip()
 
+    # 異常處理：使用者什麼都沒打就按搜尋
     if not keyword:
         return jsonify({
             "status": "error",
-            "message": "請輸入課程關鍵字",
-            "results": []
-        })
+            "message": "請輸入課程關鍵字或教授姓名",
+            "results": [],
+            "count": 0
+        }), 400  # 回傳 400 Bad Request 狀態碼
 
+    # 執行優化後的爬蟲
     results = live_course_crawler(keyword)
 
+    # 成功回傳：附帶 meta 資料，幫助前端做分頁、統計或畫面上方麵包屑提示
     return jsonify({
         "status": "success",
+        "message": "查詢成功",
         "keyword": keyword,
         "count": len(results),
         "results": results
-    })
+    }), 200
 
 @app.route("/smart_search")
 def smart_search():
