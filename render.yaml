@@ -1,3 +1,9 @@
+databases:
+  - name: sc-db
+    plan: free
+    databaseName: scdb
+    user: scuser
+
 services:
   - type: web
     name: sc
@@ -13,4 +19,6 @@ services:
       - key: FLASK_ENV
         value: production
       - key: DATABASE_URL
-        value: sqlite:///todo.db
+        fromDatabase:
+          name: sc-db
+          property: connectionString

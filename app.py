@@ -44,6 +44,10 @@ def initialize_database():
     try:
         with app.app_context():
             db.create_all()
+            if Todo.query.count() == 0:
+                seed_todo = Todo(content="歡迎使用輔大數學系 Flask 網站")
+                db.session.add(seed_todo)
+                db.session.commit()
         print(f"資料庫初始化成功：{app.config['SQLALCHEMY_DATABASE_URI']}")
         return True
     except Exception as exc:
@@ -53,6 +57,10 @@ def initialize_database():
             db.engine.dispose()
         with app.app_context():
             db.create_all()
+            if Todo.query.count() == 0:
+                seed_todo = Todo(content="歡迎使用輔大數學系 Flask 網站")
+                db.session.add(seed_todo)
+                db.session.commit()
         return False
 
 

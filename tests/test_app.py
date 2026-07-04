@@ -56,6 +56,34 @@ class AppStartupFallbackTest(unittest.TestCase):
             elif env_file.exists():
                 env_file.unlink()
 
+    def test_app_seeds_initial_todos(self):
+        original_database_url = os.environ.get("DATABASE_URL")
+        original_sqlalchemy_uri = os.environ.get("SQLALCHEMY_DATABASE_URI")
+
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                db_path = Path(temp_dir) / "seed.db"
+                os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+                os.environ.pop("SQLALCHEMY_DATABASE_URI", None)
+                sys.modules.pop("app", None)
+
+                app_module = importlib.import_module("app")
+
+                with app_module.app.app_context():
+                    todo_count = app_module.Todo.query.count()
+
+                self.assertGreaterEqual(todo_count, 1)
+        finally:
+            if original_database_url is None:
+                os.environ.pop("DATABASE_URL", None)
+            else:
+                os.environ["DATABASE_URL"] = original_database_url
+
+            if original_sqlalchemy_uri is None:
+                os.environ.pop("SQLALCHEMY_DATABASE_URI", None)
+            else:
+                os.environ["SQLALCHEMY_DATABASE_URI"] = original_sqlalchemy_uri
+
     def test_render_config_uses_gunicorn_entrypoint(self):
         repo_root = Path(__file__).resolve().parents[1]
         render_file = repo_root / "render.yaml"
