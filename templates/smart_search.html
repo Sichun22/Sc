@@ -68,22 +68,29 @@ function searchCourse() {
             html = `<p style="color: #27ae60; margin-bottom: 15px; font-weight: bold;">✅ 查詢完成，共找到 <strong>${data.results.length}</strong> 筆課程資料：</p>`;
             
             data.results.forEach(item => {
+                const name = item.course_name || '課程名稱未提供';
+                const teacher = item.teacher || '教師未提供';
+                const time = item.time || '時間未提供';
+                const room = item.room || '教室未提供';
+                const group = item.group || '課程群組';
+                const source = item.source || '#';
+
                 html += `
                     <div style="background: #ffffff; border: 1px solid #d5dbdb; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.04);">
                         <div style="margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-                            <span style="background: #27ae60; color: white; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 3px;">${item.group}</span>
-                            <span style="background: #2980b9; color: white; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 3px;">${item.time}</span>
+                            <span style="background: #27ae60; color: white; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 3px;">${group}</span>
+                            <span style="background: #2980b9; color: white; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 3px;">${time}</span>
                         </div>
 
-                        <h3 style="margin: 0 0 10px 0; color: #2c3e50;">📖 ${item.course_name}</h3>
+                        <h3 style="margin: 0 0 10px 0; color: #2c3e50;">📖 ${name}</h3>
                         <div style="font-size: 15px; color: #2c3e50; line-height: 1.8; margin-bottom: 12px; background: #f4f6f6; padding: 12px; border-radius: 5px; border-left: 4px solid #7f8c8d;">
-                            👨‍🏫 任課老師：${item.teacher}<br>
-                            🕒 上課時間：${item.time}<br>
-                            🏫 教室：${item.room}
+                            👨‍🏫 任課老師：${teacher}<br>
+                            🕒 上課時間：${time}<br>
+                            🏫 教室：${room}
                         </div>
 
                         <div style="font-size: 13px; color: #7f8c8d;">
-                            📍 資料來源：<a href="${item.source}" target="_blank" style="color: #2980b9; text-decoration: none; font-weight: bold;">輔大數學系原課表</a>
+                            📍 資料來源：<a href="${source}" target="_blank" style="color: #2980b9; text-decoration: none; font-weight: bold;">輔大數學系原課表</a>
                         </div>
                     </div>
                 `;

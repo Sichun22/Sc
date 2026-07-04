@@ -1,0 +1,69 @@
+import importlib
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+class AppStartupFallbackTest(unittest.TestCase):
+    def test_app_starts_with_sqlite_fallback(self):
+        os.environ.pop("DATABASE_URL", None)
+        os.environ.pop("SQLALCHEMY_DATABASE_URI", None)
+        sys.modules.pop("app", None)
+
+        app_module = importlib.import_module("app")
+
+        self.assertIn(app_module.app.config["SQLALCHEMY_DATABASE_URI"], ["sqlite:///todo.db", "postgresql://sc_wwi9_user:L4O7nhTgiaP8cRsVhRC508pgXiLtyW5x@dpg-d91rntu7r5hc738rrttg-a.singapore-postgres.render.com/sc_wwi9"])
+
+        with app_module.app.test_client() as client:
+            response = client.get("/")
+            self.assertEqual(response.status_code, 200)
+
+    def test_app_reads_database_url_from_project_env_file(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        env_file = repo_root / ".env"
+        original_cwd = os.getcwd()
+        original_env = os.environ.get("DATABASE_URL")
+        original_sqlalchemy_env = os.environ.get("SQLALCHEMY_DATABASE_URI")
+        original_env_content = env_file.read_text(encoding="utf-8") if env_file.exists() else ""
+
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                os.chdir(temp_dir)
+                os.environ.pop("DATABASE_URL", None)
+                os.environ.pop("SQLALCHEMY_DATABASE_URI", None)
+                env_file.write_text("DATABASE_URL=sqlite:///from_env.db\n", encoding="utf-8")
+                sys.modules.pop("app", None)
+
+                app_module = importlib.import_module("app")
+
+                self.assertEqual(app_module.app.config["SQLALCHEMY_DATABASE_URI"], "sqlite:///from_env.db")
+        finally:
+            os.chdir(original_cwd)
+            if original_env is None:
+                os.environ.pop("DATABASE_URL", None)
+            else:
+                os.environ["DATABASE_URL"] = original_env
+
+            if original_sqlalchemy_env is None:
+                os.environ.pop("SQLALCHEMY_DATABASE_URI", None)
+            else:
+                os.environ["SQLALCHEMY_DATABASE_URI"] = original_sqlalchemy_env
+
+            if original_env_content:
+                env_file.write_text(original_env_content, encoding="utf-8")
+            elif env_file.exists():
+                env_file.unlink()
+
+    def test_render_config_uses_gunicorn_entrypoint(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        render_file = repo_root / "render.yaml"
+
+        self.assertTrue(render_file.exists(), "render.yaml should exist for Render deployment")
+        content = render_file.read_text(encoding="utf-8")
+        self.assertIn("gunicorn app:app", content)
+
+
+if __name__ == "__main__":
+    unittest.main()

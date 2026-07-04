@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import os
 import re
+from pathlib import Path
 from urllib.parse import urljoin
 import requests
 
@@ -11,15 +12,20 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-load_dotenv()
+project_root = Path(__file__).resolve().parent
+load_dotenv(project_root / ".env")
 import json
 import time
 from collections import deque
 
 app = Flask(__name__)
 
-app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-app.config["SQLALCHEMY_DATABASE_URI"] ="postgresql://sc_wwi9_user:L4O7nhTgiaP8cRsVhRC508pgXiLtyW5x@dpg-d91rntu7r5hc738rrttg-a/sc_wwi9"
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key")
+configured_database_uri = os.getenv("DATABASE_URL") or os.getenv("SQLALCHEMY_DATABASE_URI")
+if configured_database_uri:
+    app.config["SQLALCHEMY_DATABASE_URI"] = configured_database_uri
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///todo.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
@@ -32,8 +38,25 @@ class Todo(db.Model):
         nullable=False
     )
 CACHE_FILE = "fju_all_data.json"
-with app.app_context():
-    db.create_all()
+
+
+def initialize_database():
+    try:
+        with app.app_context():
+            db.create_all()
+        print(f"資料庫初始化成功：{app.config['SQLALCHEMY_DATABASE_URI']}")
+        return True
+    except Exception as exc:
+        print(f"資料庫初始化失敗，改用 SQLite 備用: {exc}")
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///todo.db"
+        if hasattr(db, "engine"):
+            db.engine.dispose()
+        with app.app_context():
+            db.create_all()
+        return False
+
+
+initialize_database()
 
 def load_all_cache():
     if os.path.exists(CACHE_FILE):
@@ -296,6 +319,9 @@ IGNORE_LINES = {
     "必修", "必選", "選修", "* * *", "English", "首頁", "最新消息", "課程資訊",
 }
 
+COURSE_LINE_HINTS = ["課", "班", "程", "設", "概", "論", "微", "線", "數", "學"]
+COURSE_NAME_HINTS = ["課程", "概論", "設計", "程式", "微積分", "線性", "人工智慧", "應用", "數學"]
+
 def normalize_keyword(keyword):
     keyword = (keyword or "").strip()
     words = [keyword]
@@ -326,7 +352,17 @@ def looks_like_noise(line):
         "資數一", "資數二", "資數三", "資數四", "應數一", "應數二", "應數三", "應數四",
         "114 學年度", "113 學年度",
     ]
-    return any(word in line for word in noise_words)
+    if any(word in line for word in noise_words):
+        return True
+    if len(line) <= 2:
+        return True
+    if line.count(" ") > 6:
+        return True
+    if not any(ch in line for ch in COURSE_LINE_HINTS):
+        return True
+    if not any(hint in line for hint in COURSE_NAME_HINTS):
+        return True
+    return False
 
 def find_next_time_and_room(lines, start_index, max_scan=8):
     teacher = ""
@@ -366,9 +402,14 @@ def live_course_crawler(keyword):
             for i, line in enumerate(lines):
                 if looks_like_noise(line):
                     continue
-                if not any(word.lower() in line.lower() for word in search_words):
+                line_lower = line.lower()
+                if not any(word.lower() in line_lower for word in search_words):
+                    continue
+                if not any(hint.lower() in line_lower for hint in COURSE_NAME_HINTS):
                     continue
                 if TIME_PATTERN.search(line):
+                    continue
+                if looks_like_noise(line):
                     continue
 
                 teacher, course_time, room = find_next_time_and_room(lines, i)
@@ -430,5 +471,5 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
-        debug=True,
+        debug=False,
     )

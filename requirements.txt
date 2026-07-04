@@ -2,7 +2,9 @@ flask
 python-dotenv
 Flask-SQLAlchemy
 psycopg2-binary
+gunicorn
 requests
 bs4
 selenium
 jsonify
+pytest
