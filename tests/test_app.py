@@ -5,6 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from bs4 import BeautifulSoup
+
 
 class AppStartupFallbackTest(unittest.TestCase):
     def test_app_starts_with_sqlite_fallback(self):
@@ -83,6 +85,25 @@ class AppStartupFallbackTest(unittest.TestCase):
                 os.environ.pop("SQLALCHEMY_DATABASE_URI", None)
             else:
                 os.environ["SQLALCHEMY_DATABASE_URI"] = original_sqlalchemy_uri
+
+    def test_extract_course_events_from_html_finds_course_blocks(self):
+        app_module = importlib.import_module("app")
+        html = """
+        <div class="event_container id-31">
+            <span class="event_header" title="微積分(一)">微積分(一)</span>
+            <div class='before_hour_text'>陳琬萍</div>
+            <div class="hours_container"><span class="hours">10:10 - 12:00</span></div>
+            <div class='after_hour_text'>MA307</div>
+        </div>
+        """
+
+        events = app_module.extract_course_events_from_soup(BeautifulSoup(html, "html.parser"))
+
+        self.assertTrue(events)
+        self.assertEqual(events[0]["course_name"], "微積分(一)")
+        self.assertEqual(events[0]["teacher"], "陳琬萍")
+        self.assertEqual(events[0]["time"], "10:10 - 12:00")
+        self.assertEqual(events[0]["room"], "MA307")
 
     def test_render_config_uses_gunicorn_entrypoint(self):
         repo_root = Path(__file__).resolve().parents[1]
